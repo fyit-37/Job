@@ -2,17 +2,16 @@
 
 "use client";
 import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInAnonymously, // Keeping for other potential uses, but logic removed
-  signInWithCustomToken,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-  User,
+    createUserWithEmailAndPassword,
+    onAuthStateChanged,
+    signInWithCustomToken,
+    signInWithEmailAndPassword,
+    signInWithPopup,
+    signOut,
+    updateProfile,
+    User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+import { doc, getDoc } from 'firebase/firestore'; 
 import React, { createContext, FC, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 // ===============================================
@@ -21,6 +20,14 @@ import React, { createContext, FC, ReactNode, useCallback, useContext, useEffect
 import { auth, db, googleProvider, createInitialUserData } from '@/app/lib/firebase';
 import Profile from '@/app/components/Profile'; // Import the new Profile component
 import ResumeBuilder from '@/app/components/Resume';
+// NEW IMPORT: Company components
+import { CompanyLoginCard, CompanyRegisterCard, CompanyDashboard } from '@/app/company/page';
+import { JobSearch } from '@/app/components/JobSearch'; 
+import { MapView } from '@/app/components/MapView'; // <- ADD THIS
+import { SavedJobs } from '@/app/components/SavedJobs';
+import { Applications } from '@/app/components/Applications';
+
+
 // ===============================================
 // 2. AUTH CONTEXT
 // ===============================================
@@ -50,17 +57,15 @@ interface AuthProviderProps {
     children: ReactNode;
 }
 
-// src/app/page.tsx (AuthProvider Component)
-
+// AuthProvider Component
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-    // State managed by the AuthProvider
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setErrorState] = useState<string | null>(null);
 
     const setError = useCallback((message: string, isError: boolean = true) => {
         if (isError) {
-            console.warn(message); 
+            console.warn(message);
         } else {
             console.log(message);
         }
@@ -73,17 +78,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const clearError = useCallback(() => {
         setErrorState(null);
     }, []);
-    
-    // --- THIS IS THE CORRECTED AUTHENTICATION LOGIC BLOCK ---
+
     useEffect(() => {
         const initialSignIn = async () => {
             try {
-                // Check for custom token, relying on onAuthStateChanged otherwise.
                 const initialAuthToken = (window as any).__initial_auth_token;
                 if (typeof initialAuthToken !== 'undefined' && initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 }
-                // ANONYMOUS SIGN-IN remains removed.
             } catch (err) {
                 console.error("Initial sign-in failed. Relying on manual login.", err);
             }
@@ -96,9 +98,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
         if(loading) initialSignIn();
         return () => unsubscribe();
-    }, [loading]); // Only dependent on 'loading' state
-
-    // --- END AUTHENTICATION LOGIC BLOCK ---
+    }, [loading]);
 
     const contextValue: AuthContextType = {
         user,
@@ -131,7 +131,7 @@ export const CustomAlert: FC<{ message: string, onClose: () => void, isError: bo
 
 
 // ===============================================
-// 4. LOGIN CARD
+// 4. LOGIN CARD (Job Seeker)
 // ===============================================
 
 interface LoginCardProps {
@@ -177,9 +177,9 @@ export const LoginCard: FC<LoginCardProps> = ({ switchToRegister }) => {
     return (
         <div className="card shadow-xl p-4 p-md-5 transition-transform duration-300 hover:shadow-2xl hover:scale-[1.01]" style={{ maxWidth: '450px', width: '100%' }}>
             <div className="card-body text-center">
-                <h2 className="card-title text-primary fw-bold mb-1">Welcome Back</h2>
+                <h2 className="card-title text-primary fw-bold mb-1">Welcome Back (Job Seeker)</h2>
                 <p className="card-subtitle text-muted mb-4">Sign in to continue your job search</p>
-            
+
                 <form onSubmit={handleLogin}>
                     <div className="mb-3 text-start">
                         <label htmlFor="loginEmail" className="form-label">Email</label>
@@ -213,7 +213,7 @@ d-flex align-items-center justify-content-center mb-4 transition-all duration-20
 
 
 // ===============================================
-// 5. REGISTER CARD
+// 5. REGISTER CARD (Job Seeker)
 // ===============================================
 
 interface RegisterCardProps {
@@ -261,7 +261,7 @@ export const RegisterCard: FC<RegisterCardProps> = ({ switchToLogin }) => {
             setIsSubmitting(false);
         }
     };
-    
+
     const handleGoogleRegister = async () => {
         clearError();
         setIsSubmitting(true);
@@ -282,9 +282,9 @@ export const RegisterCard: FC<RegisterCardProps> = ({ switchToLogin }) => {
     return (
         <div className="card shadow-xl p-4 p-md-5 transition-transform duration-300 hover:shadow-2xl hover:scale-[1.01]" style={{ maxWidth: '600px', width: '100%' }}>
             <div className="card-body text-center">
-                <h2 className="card-title text-primary fw-bold mb-1">Create an Account</h2>
+                <h2 className="card-title text-primary fw-bold mb-1">Create an Account (Job Seeker)</h2>
                 <p className="card-subtitle text-muted mb-4">Enter your details below to get started</p>
-           
+
                 <form onSubmit={handleRegister}>
                     <div className="row mb-3">
                         <div className="col-md-6 text-start">
@@ -296,17 +296,17 @@ export const RegisterCard: FC<RegisterCardProps> = ({ switchToLogin }) => {
                             <input type="text" className="form-control" id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
                         </div>
                     </div>
-                
+
                     <div className="mb-3 text-start">
                         <label htmlFor="mobileNumber" className="form-label">Mobile Number</label>
                         <input type="tel" className="form-control" id="mobileNumber" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} placeholder="e.g., 1234567890" />
                     </div>
-         
+
                     <div className="mb-3 text-start">
                         <label htmlFor="registerEmail" className="form-label">Email</label>
                         <input type="email" className="form-control" id="registerEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
                     </div>
-       
+
                     <div className="mb-3 text-start">
                         <label htmlFor="registerPassword" className="form-label">Password</label>
                         <input type="password" className="form-control" id="registerPassword" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -314,7 +314,7 @@ export const RegisterCard: FC<RegisterCardProps> = ({ switchToLogin }) => {
                     </div>
                     <div className="mb-4 text-start">
                         <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
-                        <input 
+                        <input
                             type="password" className="form-control" id="confirmPassword" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                     </div>
                     <button type="submit" className="btn btn-primary w-100 mb-3 transition-all duration-200 hover:opacity-90" disabled={isSubmitting}>
@@ -341,7 +341,7 @@ d-flex align-items-center justify-content-center mb-4 transition-all duration-20
 
 
 // ===============================================
-// 6. DASHBOARD
+// 6. DASHBOARD (Job Seeker)
 // ===============================================
 
 // DUMMY IMPLEMENTATIONS for external functions
@@ -366,27 +366,25 @@ const getInitialUserData = async (uid: string): Promise<DashboardJobData | null>
     try {
         const docSnap = await getDoc(profileRef as any);
         if (docSnap.exists()) {
-             // Type casting for robust data access
              const data = docSnap.data() as DashboardJobData & { jobData: Omit<DashboardJobData, 'displayName' | 'email' | 'userId' | 'phone' | 'location'> };
              return { ...data, ...data.jobData } as DashboardJobData;
         } else {
-             // Create initial data if not found
              const defaultData: DashboardJobData = {
-                jobsApplied: 12, savedJobs: 5, interviews: 2, newMatches: 8,
-                displayName: auth.currentUser?.displayName || 'Job Seeker',
-                email: auth.currentUser?.email || 'N/A',
-                userId: uid, phone: '123-456-7890', location: 'San Francisco, CA',
-            };
-            await createInitialUserData(uid, defaultData.displayName, defaultData.email);
-            return defaultData;
+                 jobsApplied: 12, savedJobs: 5, interviews: 2, newMatches: 8,
+                 displayName: auth.currentUser?.displayName || 'Job Seeker',
+                 email: auth.currentUser?.email || 'N/A',
+                 userId: uid, phone: '123-456-7890', location: 'San Francisco, CA',
+             };
+             await createInitialUserData(uid, defaultData.displayName, defaultData.email);
+             return defaultData;
         }
     } catch (e) {
          console.error("Error fetching or creating profile data:", e);
          return {
-            jobsApplied: 0, savedJobs: 0, interviews: 0, newMatches: 0,
-            displayName: 'Error User', email: 'error@example.com', userId: uid,
-            phone: 'N/A', location: 'N/A',
-         }
+             jobsApplied: 0, savedJobs: 0, interviews: 0, newMatches: 0,
+             displayName: 'Error User', email: 'error@example.com', userId: uid,
+             phone: 'N/A', location: 'N/A',
+           }
     }
 };
 
@@ -440,7 +438,6 @@ const Sidebar: FC<SidebarProps> = ({ currentMenu, setCurrentMenu, userEmail, han
 
     const getInitials = (email: string | null): string => {
         if (!email) return '?';
-        // 🐛 NOTE: Changed to safely access the first character
         return email.length > 0 ? email[0].toUpperCase() : '?'; 
     };
 
@@ -459,7 +456,7 @@ const Sidebar: FC<SidebarProps> = ({ currentMenu, setCurrentMenu, userEmail, han
                 <i className="bi bi-briefcase-fill me-2 fs-4 text-primary"></i>
                 <span className="fs-5 fw-bold text-dark">JobMap</span>
             </a>
-    
+
             <hr className="d-none d-md-block" />
             <ul className="nav nav-pills flex-column mb-auto">
                 {menuItems.map(item => (
@@ -483,7 +480,7 @@ text-dark text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggl
                     <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px' }}>
                         {getInitials(userEmail)}
                     </div>
-                  
+
                     <strong className="text-truncate">{userEmail || 'Guest'}</strong>
                 </a>
                 <ul className="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
@@ -515,6 +512,7 @@ export const Dashboard: FC = () => {
         if (!auth) return;
         try {
             await signOut(auth);
+            localStorage.removeItem('activePortal'); // ✅ LOCAL STORAGE CLEAR
             clearError();
             setError('You have successfully signed out.', false);
         } catch (err) {
@@ -542,7 +540,6 @@ export const Dashboard: FC = () => {
     }, [user, loadUserData]);
 
     const handleGeminiQuery = async () => {
-        // ... (Gemini logic remains the same)
         if (!prompt.trim() || !jobData) return;
 
         setGeminiLoading(true);
@@ -582,7 +579,6 @@ My specific query is: "${prompt}".`;
 
     const renderDashboardContent = () => (
         <div className="row">
-            {/* ... (StatCard and Chart JSX remains the same) */}
             {jobData && (
                 <>
                     <StatCard
@@ -670,7 +666,7 @@ My specific query is: "${prompt}".`;
                     </div>
                 </div>
             </div>
-            
+
             <div className="col-md-4">
                 {/* Recommended Jobs */}
                 <div className="card shadow-lg h-100">
@@ -708,7 +704,7 @@ e.stopPropagation(); alert(`Applying for ${job.title}`); }}>Apply</button>
                     </ul>
                 </div>
             </div>
-            
+
             {/* AI Assistant (Gemini) Panel */}
             <div className="col-md-8">
                 <div className="card shadow-lg h-100">
@@ -722,9 +718,9 @@ e.stopPropagation(); alert(`Applying for ${job.title}`); }}>Apply</button>
                             {geminiLoading ?
                                 (
                                 <p className="text-center text-muted"><i className="bi bi-arrow-clockwise animate-spin me-2"></i> Generating recommendation...</p>
-                            ) : (
+                                ) : (
                                 <p className="mb-0 small">{geminiRecommendation || "Ask a question about your job search strategy, e.g., 'What roles should I prioritize based on my experience?'"}</p>
-                            )}
+                                )}
                         </div>
                         <div 
                             className="mt-auto">
@@ -753,20 +749,19 @@ e.stopPropagation(); alert(`Applying for ${job.title}`); }}>Apply</button>
 
     const renderContent = () => {
         switch (currentMenu) {
-            case 'dashboard':
-                return jobData ? renderDashboardContent() : <p className='text-center text-muted'>Loading dashboard data...</p>;
-            case 'profile':
-                return <Profile />;
-            case 'resume':
-                return <ResumeBuilder />;
-                return (
-                    <div className="p-5 text-center bg-light rounded-3">
-                        <i className="bi bi-file-earmark-person-fill fs-1 text-secondary mb-3"></i>
-                        <h1 className="text-dark">Resume Builder / Viewer</h1>
-                        <p className="lead text-muted">This feature is under development.</p>
-                    </div>
-                );
-            default:
+        case 'profile':
+            return <Profile />;
+        case 'jobSearch': // New Job Search List View
+            return <JobSearch />;
+        case 'mapView': // <- ADD THIS NEW CASE
+            return <MapView />;
+        case 'savedJobs':
+            return <SavedJobs />;
+        case 'applications':
+            return <Applications />;
+        case 'resume':
+            return <ResumeBuilder />;
+        default:
                 return (
                     <div className="p-5 text-center bg-light rounded-3">
                         <i className="bi bi-tools fs-1 text-secondary mb-3"></i>
@@ -799,49 +794,150 @@ e.stopPropagation(); alert(`Applying for ${job.title}`); }}>Apply</button>
 
 
 // ===============================================
-// 7. AUTH COMPONENT (The wrapper for Login/Register)
+// 7. AUTH COMPONENT (The wrapper for Login/Register) - REVISED LOGIC
 // ===============================================
 
-const AuthComponent: FC = () => {
-  const { user, loading, error, clearError } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+// New type definition for the current portal
+type PortalView = 'seeker' | 'company';
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <div className="text-center">
-            <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-            </div>
-            <p className="mt-3 text-muted">Authenticating user...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // ✅ FIX: Only allow non-anonymous users to proceed to the Dashboard
-  if (user && !user.isAnonymous) {
-    return <Dashboard />;
-  }
+// Local Storage functions
+const saveActivePortal = (portal: PortalView) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('activePortal', portal);
+    }
+};
 
-  return (
-    <>
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#e9ecef' }}>
+const loadActivePortal = (): PortalView | null => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('activePortal') as PortalView | null;
+    }
+    return null;
+};
+
+
+// New component for selecting the portal
+const PortalSelection: FC<{ setPortal: (view: PortalView) => void }> = ({ setPortal }) => (
+    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#e9ecef' }}>
         <div className="text-center p-3 p-md-5">
-          {authView === 'login' ? (
-            <LoginCard switchToRegister={() => setAuthView('register')} />
-          ) : (
-            <RegisterCard switchToLogin={() => setAuthView('login')} />
-          )}
+            <h1 className="display-4 fw-bold mb-5 text-dark">Welcome to JobMap</h1>
+            <p className="lead text-muted mb-4">Please select your portal to continue:</p>
+            <div className="d-flex gap-4 justify-content-center">
+                <div className="card shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300" 
+                     onClick={() => setPortal('seeker')} style={{ maxWidth: '300px' }}>
+                    <div className="card-body">
+                        <i className="bi bi-person-fill fs-1 text-primary mb-3"></i>
+                        <h5 className="card-title fw-bold text-primary">Job Seeker Portal</h5>
+                        <p className="card-text text-muted small">Manage applications, build resumes, and get AI career advice.</p>
+                        <button className="btn btn-primary mt-2 w-100">Go to Seeker Login</button>
+                    </div>
+                </div>
+                <div className="card shadow-lg p-4 cursor-pointer hover:shadow-xl transition-all duration-300" 
+                     onClick={() => setPortal('company')} style={{ maxWidth: '300px' }}>
+                    <div className="card-body">
+                        <i className="bi bi-building-fill fs-1 text-success mb-3"></i>
+                        <h5 className="card-title fw-bold text-success">Company Portal</h5>
+                        <p className="card-text text-muted small">Post jobs, manage listings, and review candidate applications.</p>
+                        <button className="btn btn-success mt-2 w-100">Go to Company Login</button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      {error && <CustomAlert 
-        message={error} 
-        onClose={clearError} 
-        isError={error.includes("Error:") || error.includes("failed") || error.includes("Invalid credentials")} 
-      />}
-    </>
-  );
+    </div>
+);
+
+
+const AuthComponent: FC = () => {
+    const { user, loading, error, clearError } = useAuth();
+    
+    // Load persisted choice on mount. If found, start on 'login', else start on 'selection'.
+    const [activePortal, setActivePortal] = useState<PortalView | null>(loadActivePortal()); 
+    const [portalView, setPortalView] = useState<'selection' | 'login' | 'register'>(
+        loadActivePortal() ? 'login' : 'selection'
+    );
+    
+    const [authView, setAuthView] = useState<'login' | 'register'>('login');
+
+    // Logic to select the portal and transition to login/register view
+    const handlePortalSelection = (portal: PortalView) => {
+        setActivePortal(portal);
+        saveActivePortal(portal); // ✅ SAVE TO LOCAL STORAGE
+        setPortalView('login'); 
+        setAuthView('login');
+    };
+
+
+    if (loading) {
+        return (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+                <div className="text-center">
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                    <p className="mt-3 text-muted">Authenticating user...</p>
+                </div>
+            </div>
+        );
+    }
+    
+    // RENDER LOGIC: If authenticated, use the persisted role to render the dashboard.
+    if (user && !user.isAnonymous) {
+        const effectivePortal = activePortal || 'seeker';
+
+        if (effectivePortal === 'company') {
+            return <CompanyDashboard />;
+        }
+        return <Dashboard />; 
+    }
+
+    // RENDER LOGIC: If unauthenticated, show the selection or the appropriate login/register screen.
+    const renderAuthCards = () => {
+        if (activePortal === 'seeker') {
+            return authView === 'login' ? (
+                <LoginCard switchToRegister={() => setAuthView('register')} />
+            ) : (
+                <RegisterCard switchToLogin={() => setAuthView('login')} />
+            );
+        } else if (activePortal === 'company') {
+            return authView === 'login' ? (
+                <CompanyLoginCard switchToRegister={() => setAuthView('register')} />
+            ) : (
+                <CompanyRegisterCard switchToLogin={() => setAuthView('login')} />
+            );
+        }
+        // Fallback or should not be reached if state is managed correctly
+        return <LoginCard switchToRegister={() => setAuthView('register')} />;
+    };
+
+
+    return (
+        <>
+            {portalView === 'selection' && <PortalSelection setPortal={handlePortalSelection} />}
+            {portalView !== 'selection' && (
+                <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh', backgroundColor: '#e9ecef' }}>
+                    <div className="text-center p-3 p-md-5">
+                        {/* Option to go back to selection */}
+                        <button 
+                            className="btn btn-sm btn-outline-secondary mb-3" 
+                            onClick={() => { 
+                                setPortalView('selection'); 
+                                setActivePortal(null); 
+                                localStorage.removeItem('activePortal'); // ✅ CLEAR ON CHANGE
+                            }}
+                        >
+                            <i className="bi bi-arrow-left me-2"></i> Change Portal
+                        </button>
+                        {renderAuthCards()}
+                    </div>
+                </div>
+            )}
+            
+            {error && <CustomAlert 
+                message={error} 
+                onClose={clearError} 
+                isError={error.includes("Error:") || error.includes("failed") || error.includes("Invalid credentials")} 
+            />}
+        </>
+    );
 };
 
 
@@ -854,7 +950,7 @@ const FinalApp: FC = () => (
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
         <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-        
+
         <AuthProvider>
             <AuthComponent />
         </AuthProvider>
@@ -864,43 +960,43 @@ export default FinalApp;
 
 // EXPORTED INTERFACES (Needed for Profile.tsx)
 export interface SocialLinks {
-  linkedin: string;
-  facebook: string;
-  instagram: string;
+    linkedin: string;
+    facebook: string;
+    instagram: string;
 }
 export interface Experience {
-  id: number;
-  title: string;
-  company: string;
-  dates: string;
+    id: number;
+    title: string;
+    company: string;
+    dates: string;
 }
 export interface Education {
-  id: number;
-  school: string;
-  degree: string;
-  dates: string;
+    id: number;
+    school: string;
+    degree: string;
+    dates: string;
 }
 export interface Skill {
-  id: number;
-  name: string;
+    id: number;
+    name: string;
 }
 export interface Project {
-  id: number;
-  title: string;
-  description: string;
+    id: number;
+    title: string;
+    description: string;
 }
 export interface ProfileData {
-  name: string;
-  headline: string;
-  location: string;
-  about: string;
-  profileImageUrl: string;
-  coverImageUrl: string;
-  socialLinks: SocialLinks;
-  experience: Experience[];
-  education: Education[];
-  skills: Skill[];
-  projects: Project[];
+    name: string;
+    headline: string;
+    location: string;
+    about: string;
+    profileImageUrl: string;
+    coverImageUrl: string;
+    socialLinks: SocialLinks;
+    experience: Experience[];
+    education: Education[];
+    skills: Skill[];
+    projects: Project[];
 }
 
 // DUMMY IMPLEMENTATION FOR IMAGE GENERATORS 
